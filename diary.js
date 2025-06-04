@@ -1,4 +1,5 @@
-// Глобальные перемены
+
+// Глобальные переменные
 let currentTheme = 'sunny';
 let currentFiles = [];
 let entries = [];
@@ -7,8 +8,10 @@ let editingEntryId = null;
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
     loadEntries();
+    loadAllFiles();
     generateQRCode();
     changeTheme('sunny');
+    displayAllFiles();
     
     // Фокус на редакторе
     document.getElementById('editor').focus();
@@ -130,50 +133,91 @@ function clearWeatherParticles() {
     particles.forEach(particle => particle.remove());
 }
 
-// Обработка файлов
-function handleFiles(files) {
-    Array.from(files).forEach(file => {
-        if (file.size > 10 * 1024 * 1024) {
-            alert(`Файл ${file.name} слишком большой (максимум 10MB)`);
-            return;
-        }
-        
-        const fileObj = {
-            name: file.name,
-            type: file.type,
-            url: URL.createObjectURL(file),
-            id: Date.now() + Math.random()
-        };
-        
-        currentFiles.push(fileObj);
-        displayFile(fileObj);
+// Функция для конвертации файла в base64
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
     });
+}
+
+// Обработка файлов (убрано ограничение размера)
+async function handleFiles(files) {
+    const loadingMsg = document.createElement('div');
+    loadingMsg.textContent = 'Загрузка файлов...';
+    loadingMsg.style.padding = '10px';
+    loadingMsg.style.background = '#3b82f6';
+    loadingMsg.style.color = 'white';
+    loadingMsg.style.borderRadius = '8px';
+    loadingMsg.style.marginBottom = '10px';
+    document.getElementById('file-list').appendChild(loadingMsg);
+
+    for (let file of Array.from(files)) {
+        try {
+            const base64Data = await fileToBase64(file);
+            
+            const fileObj = {
+                name: file.name,
+                type: file.type,
+                size: file.size,
+                data: base64Data,
+                id: Date.now() + Math.random(),
+                uploadDate: new Date().toISOString()
+            };
+            
+            // Сохраняем файл в общую базу данных
+            saveFileToGlobalStorage(fileObj);
+            
+            currentFiles.push(fileObj);
+            displayFile(fileObj);
+            
+        } catch (error) {
+            console.error('Ошибка при загрузке файла:', file.name, error);
+            alert(`Ошибка при загрузке файла ${file.name}`);
+        }
+    }
+    
+    loadingMsg.remove();
+    displayAllFiles();
+}
+
+// Функция для форматирования размера файла
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 function displayFile(file) {
     const fileList = document.getElementById('file-list');
     const fileItem = document.createElement('div');
     fileItem.className = 'file-item';
+    fileItem.setAttribute('data-file-id', file.id);
     
     // Определяем иконку и возможность просмотра
     let fileDisplay = '';
     let viewButton = '';
     
     if (file.type.startsWith('image/')) {
-        fileDisplay = `<img src="${file.url}" alt="${file.name}" class="file-thumbnail" onclick="openMediaViewer('${file.url}', 'image', '${file.name}')">`;
-        viewButton = `<button class="view-file" onclick="openMediaViewer('${file.url}', 'image', '${file.name}')" title="Открыть изображение">👁️</button>`;
+        fileDisplay = `<img src="${file.data}" alt="${file.name}" class="file-thumbnail" onclick="openMediaViewer('${file.data}', 'image', '${file.name}')">`;
+        viewButton = `<button class="view-file" onclick="openMediaViewer('${file.data}', 'image', '${file.name}')" title="Открыть изображение">👁️</button>`;
     } else if (file.type.startsWith('video/')) {
-        fileDisplay = `<video class="file-thumbnail" onclick="openMediaViewer('${file.url}', 'video', '${file.name}')"><source src="${file.url}" type="${file.type}"></video>`;
-        viewButton = `<button class="view-file" onclick="openMediaViewer('${file.url}', 'video', '${file.name}')" title="Открыть видео">🎬</button>`;
+        fileDisplay = `<video class="file-thumbnail" onclick="openMediaViewer('${file.data}', 'video', '${file.name}')"><source src="${file.data}" type="${file.type}"></video>`;
+        viewButton = `<button class="view-file" onclick="openMediaViewer('${file.data}', 'video', '${file.name}')" title="Открыть видео">🎬</button>`;
     } else {
         fileDisplay = `<div class="file-icon">📁</div>`;
-        viewButton = `<button class="view-file" onclick="downloadFile('${file.url}', '${file.name}')" title="Скачать файл">⬇️</button>`;
+        viewButton = `<button class="view-file" onclick="downloadFileFromData('${file.data}', '${file.name}')" title="Скачать файл">⬇️</button>`;
     }
     
     fileItem.innerHTML = `
         ${fileDisplay}
         <div class="file-info">
-            <span class="file-name">${file.name}</span>
+            <span class="file-name" title="${file.name}">${file.name}</span>
+            <span class="file-size">${formatFileSize(file.size)}</span>
             <div class="file-actions">
                 ${viewButton}
                 <button class="remove-file" onclick="removeFile('${file.id}')" title="Удалить файл">❌</button>
@@ -181,6 +225,40 @@ function displayFile(file) {
         </div>
     `;
     fileList.appendChild(fileItem);
+}
+
+// Отображение всех файлов в общем хранилище
+function displayAllFiles() {
+    const allFilesGrid = document.getElementById('all-files-list');
+    allFilesGrid.innerHTML = '';
+    
+    const allFiles = getAllFiles();
+    
+    allFiles.forEach(file => {
+        const fileElement = document.createElement('div');
+        fileElement.className = 'file-item';
+        fileElement.style.margin = '5px';
+        
+        let fileDisplay = '';
+        
+        if (file.type.startsWith('image/')) {
+            fileDisplay = `<img src="${file.data}" alt="${file.name}" class="file-thumbnail" onclick="openMediaViewer('${file.data}', 'image', '${file.name}')" style="height: 80px;">`;
+        } else if (file.type.startsWith('video/')) {
+            fileDisplay = `<video class="file-thumbnail" onclick="openMediaViewer('${file.data}', 'video', '${file.name}')" style="height: 80px;"><source src="${file.data}" type="${file.type}"></video>`;
+        } else {
+            fileDisplay = `<div class="file-icon" onclick="downloadFileFromData('${file.data}', '${file.name}')" style="height: 80px; font-size: 30px;">📁</div>`;
+        }
+        
+        fileElement.innerHTML = `
+            ${fileDisplay}
+            <div style="font-size: 10px; text-align: center; margin-top: 5px;">
+                <div style="font-weight: bold; margin-bottom: 2px;" title="${file.name}">${file.name.length > 15 ? file.name.substring(0, 15) + '...' : file.name}</div>
+                <div style="color: #666;">${formatFileSize(file.size)}</div>
+            </div>
+        `;
+        
+        allFilesGrid.appendChild(fileElement);
+    });
 }
 
 function removeFile(fileId) {
@@ -194,8 +272,26 @@ function displayFiles() {
     currentFiles.forEach(file => displayFile(file));
 }
 
+function clearAllFiles() {
+    if (confirm('Вы уверены, что хотите удалить ВСЕ загруженные файлы? Это действие нельзя отменить!')) {
+        clearGlobalFileStorage();
+        displayAllFiles();
+        alert('Все файлы удалены из хранилища');
+    }
+}
+
+// Скачивание файла из base64 данных
+function downloadFileFromData(base64Data, fileName) {
+    const link = document.createElement('a');
+    link.href = base64Data;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
 // Открытие медиа-просмотрщика
-function openMediaViewer(url, type, name) {
+function openMediaViewer(data, type, name) {
     const viewer = document.createElement('div');
     viewer.className = 'media-viewer';
     viewer.onclick = function(e) {
@@ -206,9 +302,9 @@ function openMediaViewer(url, type, name) {
     
     let content = '';
     if (type === 'image') {
-        content = `<img src="${url}" alt="${name}" class="media-content">`;
+        content = `<img src="${data}" alt="${name}" class="media-content">`;
     } else if (type === 'video') {
-        content = `<video src="${url}" controls class="media-content"></video>`;
+        content = `<video src="${data}" controls class="media-content"></video>`;
     }
     
     viewer.innerHTML = `
@@ -229,13 +325,6 @@ function closeMediaViewer() {
     if (viewer) {
         viewer.remove();
     }
-}
-
-function downloadFile(url, name) {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = name;
-    link.click();
 }
 
 // Сохранение записи
@@ -302,11 +391,11 @@ function displayEntries() {
                     <div class="entry-files-list">
                         ${entry.files.map(file => {
                             if (file.type.startsWith('image/')) {
-                                return `<img src="${file.url}" alt="${file.name}" class="entry-file-thumb" onclick="openMediaViewer('${file.url}', 'image', '${file.name}')" title="${file.name}">`;
+                                return `<img src="${file.data}" alt="${file.name}" class="entry-file-thumb" onclick="openMediaViewer('${file.data}', 'image', '${file.name}')" title="${file.name}">`;
                             } else if (file.type.startsWith('video/')) {
-                                return `<video class="entry-file-thumb" onclick="openMediaViewer('${file.url}', 'video', '${file.name}')" title="${file.name}"><source src="${file.url}" type="${file.type}"></video>`;
+                                return `<video class="entry-file-thumb" onclick="openMediaViewer('${file.data}', 'video', '${file.name}')" title="${file.name}"><source src="${file.data}" type="${file.type}"></video>`;
                             } else {
-                                return `<div class="entry-file-thumb file-icon" onclick="downloadFile('${file.url}', '${file.name}')" title="${file.name}">📁</div>`;
+                                return `<div class="entry-file-thumb file-icon" onclick="downloadFileFromData('${file.data}', '${file.name}')" title="${file.name}">📁</div>`;
                             }
                         }).join('')}
                     </div>
@@ -389,4 +478,8 @@ function downloadQR() {
 function loadEntries() {
     entries = getAllEntries();
     displayEntries();
+}
+
+function loadAllFiles() {
+    displayAllFiles();
 }
