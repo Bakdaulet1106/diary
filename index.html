@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -49,14 +50,20 @@
                     <div id="editor" contenteditable="true" class="editor" placeholder="Начните писать свою запись..."></div>
                     
                     <div class="file-upload-section">
-                        <input type="file" id="file-input" multiple accept="image/*,video/*,.zip,.rar" onchange="handleFiles(this.files)">
-                        <label for="file-input" class="file-upload-btn">📎 Прикрепить файлы</label>
+                        <input type="file" id="file-input" multiple accept="*/*" onchange="handleFiles(this.files)">
+                        <label for="file-input" class="file-upload-btn">📎 Прикрепить файлы (любой размер)</label>
                         <div id="file-list" class="file-list"></div>
                     </div>
 
                     <div class="entry-actions">
                         <button onclick="saveEntry()" class="save-btn">💾 Сохранить запись</button>
                         <button onclick="clearEditor()" class="clear-btn">🗑️ Очистить</button>
+                    </div>
+
+                    <div class="storage-info">
+                        <h4>Все загруженные файлы:</h4>
+                        <div id="all-files-list" class="all-files-grid"></div>
+                        <button onclick="clearAllFiles()" class="clear-all-files-btn">🗑️ Очистить все файлы</button>
                     </div>
                 </div>
             </div>
