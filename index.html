@@ -4,84 +4,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Цифровой дневник</title>
+    <title>Цифровой Дневник - Записи и отчеты</title>
+    <meta name="description" content="Современный цифровой дневник с поддержкой мультимедиа, QR-кодами и красивыми темами">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id="theme-background" class="theme-background"></div>
-    
-    <div class="container">
+    <div id="app">
+        <!-- Matrix Rain Background -->
+        <div id="matrix-bg" class="matrix-background"></div>
+        
+        <!-- Floating Particles Background -->
+        <div id="particles-bg" class="particles-background"></div>
+
+        <!-- Header -->
         <header class="header">
-            <h1>📔 Мой цифровой дневник</h1>
-            <div class="theme-selector">
-                <label for="theme">Выберите тему:</label>
-                <select id="theme" onchange="changeTheme(this.value)">
-                    <option value="sunny">☀️ Солнечно</option>
-                    <option value="cloudy">☁️ Облачно</option>
-                    <option value="rainy">🌧️ Дождь</option>
-                    <option value="snowy">❄️ Снег</option>
-                    <option value="matrix">💚 Матрица</option>
-                </select>
-            </div>
+            <h1 class="title">📓 Цифровой Дневник</h1>
+            <p class="subtitle">Сохраняйте ваши мысли, фото и файлы</p>
         </header>
 
-        <main class="main-content">
-            <div class="editor-section">
-                <div class="entry-form">
-                    <input type="text" id="entry-title" placeholder="Заголовок записи..." class="title-input">
-                    
-                    <div class="toolbar">
-                        <button onclick="formatText('bold')" title="Жирный"><b>B</b></button>
-                        <button onclick="formatText('italic')" title="Курсив"><i>I</i></button>
-                        <button onclick="formatText('underline')" title="Подчеркнутый"><u>U</u></button>
-                        <button onclick="formatText('justifyLeft')" title="По левому краю">⬅️</button>
-                        <button onclick="formatText('justifyCenter')" title="По центру">⬅️➡️</button>
-                        <button onclick="formatText('justifyRight')" title="По правому краю">➡️</button>
-                        <select onchange="formatText('fontSize', this.value)">
-                            <option value="1">8pt</option>
-                            <option value="3" selected>12pt</option>
-                            <option value="4">14pt</option>
-                            <option value="5">18pt</option>
-                            <option value="6">24pt</option>
-                        </select>
-                        <input type="color" onchange="formatText('foreColor', this.value)" title="Цвет текста">
-                    </div>
-
-                    <div id="editor" contenteditable="true" class="editor" placeholder="Начните писать свою запись..."></div>
-                    
-                    <div class="file-upload-section">
-                        <input type="file" id="file-input" multiple accept="*/*" onchange="handleFiles(this.files)">
-                        <label for="file-input" class="file-upload-btn">📎 Прикрепить файлы (любой размер)</label>
-                        <div id="file-list" class="file-list"></div>
-                    </div>
-
-                    <div class="entry-actions">
-                        <button onclick="saveEntry()" class="save-btn">💾 Сохранить запись</button>
-                        <button onclick="clearEditor()" class="clear-btn">🗑️ Очистить</button>
-                    </div>
-
-                    <div class="storage-info">
-                        <h4>Все загруженные файлы:</h4>
-                        <div id="all-files-list" class="all-files-grid"></div>
-                        <button onclick="clearAllFiles()" class="clear-all-files-btn">🗑️ Очистить все файлы</button>
-                    </div>
-                </div>
+        <!-- Controls Panel -->
+        <div class="controls-panel">
+            <div class="controls-left">
+                <select id="theme-selector" class="theme-selector">
+                    <option value="matrix">🟢 Матрица</option>
+                    <option value="rain">🌧️ Дождь</option>
+                    <option value="snow">❄️ Снег</option>
+                    <option value="sunny">☀️ Солнце</option>
+                </select>
             </div>
-
-            <div class="sidebar">
-                <div class="qr-section">
-                    <h3>QR код для доступа</h3>
-                    <div id="qr-code" class="qr-code"></div>
-                    <button onclick="downloadQR()" class="download-btn">⬇️ Скачать QR</button>
-                </div>
-
-                <div class="entries-list">
-                    <h3>Мои записи</h3>
-                    <div id="entries-container" class="entries-container"></div>
-                </div>
+            
+            <div class="controls-right">
+                <button id="qr-btn" class="btn btn-outline">📱 QR-код</button>
+                <button id="add-entry-btn" class="btn btn-primary">➕ Новая запись</button>
             </div>
-        </main>
+        </div>
+
+        <!-- Entries Grid -->
+        <div id="entries-grid" class="entries-grid"></div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="empty-state">
+            <div class="empty-icon">📅</div>
+            <p>Ваш дневник пуст. Создайте первую запись!</p>
+        </div>
     </div>
+
+    <!-- Modal for Adding Entry -->
+    <div id="add-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Новая запись в дневнике</h3>
+                <button id="close-modal" class="close-btn">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="entry-title" placeholder="Заголовок записи..." class="input">
+                <textarea id="entry-content" placeholder="Содержание записи..." class="textarea"></textarea>
+                <select id="entry-theme" class="select">
+                    <option value="matrix">🟢 Матрица</option>
+                    <option value="rain">🌧️ Дождь</option>
+                    <option value="snow">❄️ Снег</option>
+                    <option value="sunny">☀️ Солнце</option>
+                </select>
+                <input type="file" id="entry-files" multiple accept="image/*,video/*,.zip,.rar,.pdf,.doc,.docx" class="file-input">
+                <button id="save-entry" class="btn btn-primary btn-full">Сохранить запись</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Modal -->
+    <div id="qr-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>QR-код для доступа к дневнику</h3>
+                <button id="close-qr-modal" class="close-btn">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="qr-code" class="qr-container"></div>
+                <p class="qr-description">Отсканируйте этот QR-код для просмотра дневника на другом устройстве</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
 
     <script src="db.js"></script>
     <script src="diary.js"></script>
